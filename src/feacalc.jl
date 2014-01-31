@@ -27,19 +27,29 @@ using Rasta
 nrow(x) = size(x,1)
 ncol(x) = size(x,2)
 
-## if test==true, compute features with parmeters as we use in speaker recogntion
-function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399)
+## compute features according to standard settingsm directly from a wav file. 
+## this does channel at the time. 
+function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono)
     (x, sr) = wavread(wavfile)
     sr = convert(Float64, sr)       # more reasonable sr
-    data = {"nx" => nrow(x), "sr" => sr, "source" => wavfile} # save some metadata
-    x = mean(x, 2)[:,1]             # averave multiple channels for now
+    nsamples, nchan = size(x)
+    ## save some metadata
+    meta = {"nsamples" => nsamples, "sr" => sr, "source" => wavfile, "nchan" => nchan} 
+    if chan == :mono
+        x = vec(mean(x, 2))            # averave multiple channels for now
+    elseif isa(chan, Integer) 
+        @assert chan in 1:nchan
+        x = vec(x[:,chan])
+    else
+        error("Unknown channel specification: ", chan)
+    end
     preemp = 0.97
     preemp ^= 16000. / sr
 
     ## basic features
-    (m, pspec, meta) = mfcc(x, sr, defaults)
-    data["nftot"] = nrow(m)
- 
+    (m, pspec, params) = mfcc(x, sr, defaults)
+    meta["totnframes"] = nrow(m)
+    
     ## augment features
     if augtype==:delta || augtype==:ddelta
         d = deltas(m)
@@ -52,7 +62,7 @@ function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:ener
     elseif augtype==:sdc
         m = sdc(m)
     end
-    data["augtype"] = string(augtype)
+    meta["augtype"] = string(augtype)
 
     if sadtype==:energy
         ## integrate power
@@ -63,37 +73,38 @@ function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:ener
     
         maxpow = maximum(power)
         speech = find(power .> maxpow - dynrange)
-        meta["dynrange"] = dynrange
+        params["dynrange"] = dynrange
     elseif sadtype==:none
         speech = 1:nrow(m)
     end
-    data["sadtype"] = string(sadtype)
+    meta["sadtype"] = string(sadtype)
     ## perform SAD
     m = m[speech,:]
-    data["speech"] = convert(Vector{Uint32}, speech)
-    data["nf"] = nrow(m)
+    meta["speech"] = convert(Vector{Uint32}, speech)
+    meta["nframes"] = nrow(m)
+    meta["nfea"] = ncol(m)
     
     ## normalization
     if normtype==:warp
         m = warp(m, nwarp)
-        meta["warp"] = nwarp          # the default
+        params["warp"] = nwarp          # the default
     elseif normtype==:mvn
         znorm!(m,1)
     end
-    data["normtype"] = string(normtype)
+    meta["normtype"] = string(normtype)
 
-    return(convert(Array{Float32},m), data, meta)
+    return(convert(Array{Float32},m), meta, params)
 end
 
-function feacalc(wavfile::String, application::Symbol)
+function feacalc(wavfile::String, application::Symbol; chan=:mono)
     if (application==:speaker)
-        feacalc(wavfile; defaults=:spkid_toolkit)
+        feacalc(wavfile; defaults=:spkid_toolkit, chan=chan)
     elseif application==:wbspeaker
-        feacalc(wavfile; defaults=:wbspeaker)
+        feacalc(wavfile; defaults=:wbspeaker, chan=chan)
     elseif (application==:language)
-        feacalc(wavfile; defaults=:rasta, warp=299, augtype=:sdc)
+        feacalc(wavfile; defaults=:rasta, nwarp=299, augtype=:sdc, chan=chan)
     elseif (application==:diarization)
-        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:none)
+        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:none, chan=chan)
     else
         error("Unknown application ", application)
     end
