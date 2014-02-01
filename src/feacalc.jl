@@ -13,11 +13,7 @@
 ##     You should have received a copy of the GNU General Public License
 ##     along with this program.  If not, see <http://www.gnu.org/licenses/>. 
 
-module Feacalc
-
 ## Feacalc.  Feature calculation as used for speaker and language recognition. 
-
-export feacalc, sad
 
 using MFCCs
 using SignalProcessing
@@ -38,7 +34,9 @@ function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:ener
     if chan == :mono
         x = vec(mean(x, 2))            # averave multiple channels for now
     elseif isa(chan, Integer) 
-        @assert chan in 1:nchan
+        if !(chan in 1:nchan)
+            error("Bad channel specification: ", chan)
+        end
         x = vec(x[:,chan])
     else
         error("Unknown channel specification: ", chan)
@@ -135,6 +133,4 @@ function sad(wavfile::String, speechout::String, silout::String)
     wavwrite(y, sr, speechout)
     y = x[find(!xi)]
     wavwrite(y, sr, silout)
-end
-
 end
