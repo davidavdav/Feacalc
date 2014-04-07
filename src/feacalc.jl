@@ -27,20 +27,29 @@ ncol(x) = size(x,2)
 ## this does channel at the time. 
 function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono)
     (x, sr) = wavread(wavfile)
+    feacalc(x; augtype=agtype, normtype=normtype, sadtype=sadtype, defaults=defaults, dynrange=dynrange, nwarp=nwarp, chan=chan, sr=sr, source=wavfile)
+end
+
+## assume we have an array already
+function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono, sr::Real=8000.0, wavfile=":array")
     sr = convert(Float64, sr)       # more reasonable sr
-    nsamples, nchan = size(x)
+    if ndims(x)>1
+        nsamples, nchan = size(x)
+        if chan == :mono
+            x = vec(mean(x, 2))            # averave multiple channels for now
+        elseif isa(chan, Integer) 
+            if !(chan in 1:nchan)
+                error("Bad channel specification: ", chan)
+            end
+            x = vec(x[:,chan])
+        else
+            error("Unknown channel specification: ", chan)
+        end
+    else
+        nsamples, nchan = length(x), 1
+    end
     ## save some metadata
     meta = {"nsamples" => nsamples, "sr" => sr, "source" => wavfile, "nchan" => nchan} 
-    if chan == :mono
-        x = vec(mean(x, 2))            # averave multiple channels for now
-    elseif isa(chan, Integer) 
-        if !(chan in 1:nchan)
-            error("Bad channel specification: ", chan)
-        end
-        x = vec(x[:,chan])
-    else
-        error("Unknown channel specification: ", chan)
-    end
     preemp = 0.97
     preemp ^= 16000. / sr
 
