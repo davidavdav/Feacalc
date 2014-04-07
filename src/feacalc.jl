@@ -25,18 +25,25 @@ ncol(x) = size(x,2)
 
 ## compute features according to standard settingsm directly from a wav file. 
 ## this does channel at the time. 
-function feacalc(wavfile::String; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono)
-    (x, sr) = wavread(wavfile)
-    feacalc(x; augtype=agtype, normtype=normtype, sadtype=sadtype, defaults=defaults, dynrange=dynrange, nwarp=nwarp, chan=chan, sr=sr, source=wavfile)
+function feacalc(wavfile::String; method=:sox, augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono)
+    if method == :wav
+        (x, sr) = wavread(wavfile)
+    elseif method == :sox
+        (x, sr) = soxread(wavfile)
+    end
+    sr = convert(Float64, sr)       # more reasonable sr
+    feacalc(x; augtype=augtype, normtype=normtype, sadtype=sadtype, defaults=defaults, dynrange=dynrange, nwarp=nwarp, chan=chan, sr=sr, source=wavfile)
 end
 
 ## assume we have an array already
-function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono, sr::Real=8000.0, wavfile=":array")
-    sr = convert(Float64, sr)       # more reasonable sr
+function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono, sr::Real=8000.0, source=":array")
     if ndims(x)>1
         nsamples, nchan = size(x)
         if chan == :mono
             x = vec(mean(x, 2))            # averave multiple channels for now
+        elseif in(chan, [:a, :b])
+            nchan = findin([chan], [:a, :b])
+            x = vec(x[:,nchan])
         elseif isa(chan, Integer) 
             if !(chan in 1:nchan)
                 error("Bad channel specification: ", chan)
@@ -49,7 +56,7 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
         nsamples, nchan = length(x), 1
     end
     ## save some metadata
-    meta = {"nsamples" => nsamples, "sr" => sr, "source" => wavfile, "nchan" => nchan} 
+    meta = {"nsamples" => nsamples, "sr" => sr, "source" => source, "nchan" => nchan} 
     preemp = 0.97
     preemp ^= 16000. / sr
 
@@ -103,15 +110,15 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     return(convert(Array{Float32},m), meta, params)
 end
 
-function feacalc(wavfile::String, application::Symbol; chan=:mono)
+function feacalc(wavfile::String, application::Symbol; chan=:mono, filetype=:wav)
     if (application==:speaker)
-        feacalc(wavfile; defaults=:spkid_toolkit, chan=chan)
+        feacalc(wavfile; defaults=:spkid_toolkit, chan=chan, filetype=filetype)
     elseif application==:wbspeaker
-        feacalc(wavfile; defaults=:wbspeaker, chan=chan)
+        feacalc(wavfile; defaults=:wbspeaker, chan=chan, filetype=filetype)
     elseif (application==:language)
-        feacalc(wavfile; defaults=:rasta, nwarp=299, augtype=:sdc, chan=chan)
+        feacalc(wavfile; defaults=:rasta, nwarp=299, augtype=:sdc, chan=chan, filetype=filetype)
     elseif (application==:diarization)
-        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:none, chan=chan)
+        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:none, chan=chan, filetype=filetype)
     else
         error("Unknown application ", application)
     end
@@ -142,4 +149,18 @@ function sad(wavfile::String, speechout::String, silout::String)
     wavwrite(y, sr, speechout)
     y = x[find(!xi)]
     wavwrite(y, sr, silout)
+end
+
+## this should probably be called soxread...
+function soxread(file)
+    nch = int(readall(`soxi -c $file`))
+    sr = int(readall(`soxi -r $file`))
+    sox = `sox $file -t raw -e signed -r $sr -b 16 -`
+    fd, proc = readsfrom(sox)
+    x = Int16[]
+    while !eof(fd)
+        push!(x, read(fd, Int16))
+    end
+    ns = div(length(x), nch)
+    reshape(x, nch, ns)' / (1<<15), sr
 end
