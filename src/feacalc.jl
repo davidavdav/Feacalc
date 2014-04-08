@@ -30,6 +30,8 @@ function feacalc(wavfile::String; method=:sox, augtype=:ddelta, normtype=:warp, 
         (x, sr) = wavread(wavfile)
     elseif method == :sox
         (x, sr) = soxread(wavfile)
+    elseif method == :sphere
+        (x, sr) = sphread(wavfile)
     end
     sr = convert(Float64, sr)       # more reasonable sr
     feacalc(x; augtype=augtype, normtype=normtype, sadtype=sadtype, defaults=defaults, dynrange=dynrange, nwarp=nwarp, chan=chan, sr=sr, source=wavfile)
@@ -42,13 +44,14 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
         if chan == :mono
             x = vec(mean(x, 2))            # averave multiple channels for now
         elseif in(chan, [:a, :b])
-            nchan = findin([chan], [:a, :b])
-            x = vec(x[:,nchan])
+            channum = findin([:a, :b], [chan])
+            x = vec(x[:,channum])
         elseif isa(chan, Integer) 
             if !(chan in 1:nchan)
                 error("Bad channel specification: ", chan)
             end
             x = vec(x[:,chan])
+            chan=[:a, :b][chan]
         else
             error("Unknown channel specification: ", chan)
         end
@@ -56,7 +59,8 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
         nsamples, nchan = length(x), 1
     end
     ## save some metadata
-    meta = {"nsamples" => nsamples, "sr" => sr, "source" => source, "nchan" => nchan} 
+    meta = {"nsamples" => nsamples, "sr" => sr, "source" => source, "nchan" => nchan,
+            "chan" => chan} 
     preemp = 0.97
     preemp ^= 16000. / sr
 
@@ -76,7 +80,7 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     elseif augtype==:sdc
         m = sdc(m)
     end
-    meta["augtype"] = string(augtype)
+    meta["augtype"] = augtype
 
     if sadtype==:energy
         ## integrate power
@@ -91,7 +95,7 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     elseif sadtype==:none
         speech = 1:nrow(m)
     end
-    meta["sadtype"] = string(sadtype)
+    meta["sadtype"] = sadtype
     ## perform SAD
     m = m[speech,:]
     meta["speech"] = convert(Vector{Uint32}, speech)
@@ -105,20 +109,22 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     elseif normtype==:mvn
         znorm!(m,1)
     end
-    meta["normtype"] = string(normtype)
+    meta["normtype"] = normtype
 
     return(convert(Array{Float32},m), meta, params)
 end
 
-function feacalc(wavfile::String, application::Symbol; chan=:mono, filetype=:wav)
+function feacalc(wavfile::String, application::Symbol; chan=:mono, method=:sox)
     if (application==:speaker)
-        feacalc(wavfile; defaults=:spkid_toolkit, chan=chan, filetype=filetype)
+        feacalc(wavfile; defaults=:spkid_toolkit, chan=chan, method=method)
     elseif application==:wbspeaker
-        feacalc(wavfile; defaults=:wbspeaker, chan=chan, filetype=filetype)
+        feacalc(wavfile; defaults=:wbspeaker, chan=chan, method=method)
     elseif (application==:language)
-        feacalc(wavfile; defaults=:rasta, nwarp=299, augtype=:sdc, chan=chan, filetype=filetype)
+        feacalc(wavfile; defaults=:rasta, nwarp=299, augtype=:sdc, chan=chan, 
+                method=method)
     elseif (application==:diarization)
-        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, augtype=:none, chan=chan, filetype=filetype)
+        feacalc(wavfile; defaults=:rasta, sadtype=:none, normtype=:mvn, 
+                augtype=:none, chan=chan, method=method)
     else
         error("Unknown application ", application)
     end
@@ -164,3 +170,18 @@ function soxread(file)
     ns = div(length(x), nch)
     reshape(x, nch, ns)' / (1<<15), sr
 end
+
+## similarly using sphere tools
+function sphread(file)
+    nch = int(readall(`h_read -n -F channel_count $file`))
+    sr = int(readall(`h_read -n -F sample_rate $file`))
+    sphere = `w_decode -o pcm $file -` |> `h_strip - - `
+    fd, proc = readsfrom(sphere)
+    x = Int16[]
+    while !eof(fd)
+        push!(x, read(fd, Int16))
+    end
+    ns = div(length(x), nch)
+    reshape(x, nch, ns)' / (1<<15), sr
+end
+    
