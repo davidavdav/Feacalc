@@ -9,10 +9,15 @@ using HDF5
 ## encode non-HDF5 types in the key by adding type indicator---a poorman's solution
 HDF5.write(fd::HDF5File, s::ASCIIString, b::Bool) = write(fd, string(s,":Bool"), int8(b))
 HDF5.write(fd::HDF5File, s::ASCIIString, sym::Symbol) = write(fd, string(s,":Symbol"), string(sym))
+HDF5.write(fd::HDF5File, s::ASCIIString, ss::SubString) = write(fd, s, ascii(ss))
 
 ## always save data in Float32
 ## the functiona arguments are the same as the output of feacalc
 function save{T<:FloatingPoint}(file::String, x::Matrix{T}, meta::Dict, params::Dict)
+    dir = dirname(file)
+    if length(dir)>0 && !isdir(dir)
+        mkpath(dir)
+    end
     fd = h5open(file, "w")
     fd["features/data"] = float32(x)
     for (k,v) in meta
