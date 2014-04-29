@@ -48,6 +48,10 @@ end
 function load(file::String; meta=false, params=false)
     fd = h5open(file, "r")
     fea = float64(read(fd["features/data"]))
+    if length(fea)==0           # "no data"
+        m = read(fd["features/meta"])
+        fea = zeros(0,m["nfea"])
+    end
     if ! (meta || params)
         return fea
     end
