@@ -141,20 +141,20 @@ end
 
 ## listen to SAD
 function sad(wavfile::String, speechout::String, silout::String)
-    (x, sr) = wavread(wavfile)
+    (x, sr, nbits) = wavread(wavfile)
     sr = convert(Float64, sr)       # more reasonable sr
     x = mean(x, 2)[:,1]             # averave multiple channels for now
     (m, pspec, meta) = mfcc(x, sr; preemph=0)
     sp = sad(pspec, sr)
     sl = iround(meta["steptime"] * sr)
-    xi = zeros(Bool, size(x))
-    for (i = sp)
+    xi = falses(size(x))
+    for (i in sp)
         xi[(i-1)*sl+(1:sl)] = true
     end
     y = x[find(xi)]
-    wavwrite(y, sr, speechout)
+    wavwrite(y, speechout, Fs=sr, nbits=nbits)
     y = x[find(!xi)]
-    wavwrite(y, sr, silout)
+    wavwrite(y, silout, Fs=sr, nbits=nbits)
 end
 
 ## this should probably be called soxread...
@@ -162,7 +162,7 @@ function soxread(file)
     nch = int(readall(`soxi -c $file`))
     sr = int(readall(`soxi -r $file`))
     sox = `sox $file -t raw -e signed -r $sr -b 16 -`
-    fd, proc = readsfrom(sox)
+    fd, proc = open(sox, "r")
     x = Int16[]
     while !eof(fd)
         push!(x, read(fd, Int16))
