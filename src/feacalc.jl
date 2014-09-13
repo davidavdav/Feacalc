@@ -152,9 +152,9 @@ function sad(wavfile::String, speechout::String, silout::String)
         xi[(i-1)*sl+(1:sl)] = true
     end
     y = x[find(xi)]
-    wavwrite(y, speechout, Fs=sr, nbits=nbits)
+    wavwrite(y, speechout, Fs=sr, nbits=nbits, compression=WAVE_FORMAT_PCM)
     y = x[find(!xi)]
-    wavwrite(y, silout, Fs=sr, nbits=nbits)
+    wavwrite(y, silout, Fs=sr, nbits=nbits, compression=WAVE_FORMAT_PCM)
 end
 
 ## this should probably be called soxread...
