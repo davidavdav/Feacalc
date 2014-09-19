@@ -1,6 +1,8 @@
 Feacalc
 =======
 
+Feature calculation for speech processing. 
+
 This module has methods that set parameters for feature extraction in standard configurations.  This is very specific to the application. 
 
 ```julia
