@@ -143,9 +143,9 @@ end
 function sad(wavfile::String, speechout::String, silout::String; dynrange::Float64=30.)
     (x, sr, nbits) = wavread(wavfile)
     sr = float64(sr)               # more reasonable sr
-    x = mean(x, 2)[:,1]            # averave multiple channels for now
+    x = vec(mean(x, 2))            # averave multiple channels for now
     (m, pspec, meta) = mfcc(x, sr; preemph=0)
-    sp = sad(pspec, sr, dynrange)
+    sp = sad(pspec, sr, dynrange=dynrange)
     sl = iround(meta["steptime"] * sr)
     xi = falses(size(x))
     for (i in sp)
