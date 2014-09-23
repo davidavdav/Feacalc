@@ -33,7 +33,7 @@ function feacalc(wavfile::String; method=:sox, augtype=:ddelta, normtype=:warp, 
     elseif method == :sphere
         (x, sr) = sphread(wavfile)
     end
-    sr = convert(Float64, sr)       # more reasonable sr
+    sr = float64(sr)       # more reasonable sr
     feacalc(x; augtype=augtype, normtype=normtype, sadtype=sadtype, defaults=defaults, dynrange=dynrange, nwarp=nwarp, chan=chan, sr=sr, source=wavfile)
 end
 
@@ -93,12 +93,12 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
         speech = find(power .> maxpow - dynrange)
         params["dynrange"] = dynrange
     elseif sadtype==:none
-        speech = 1:nrow(m)
+        speech = [1:nrow(m)]
     end
     meta["sadtype"] = sadtype
     ## perform SAD
     m = m[speech,:]
-    meta["speech"] = convert(Vector{Uint32}, speech)
+    meta["speech"] = uint32(speech)
     meta["nframes"] = nrow(m)
     meta["nfea"] = ncol(m)
     
@@ -111,7 +111,7 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     end
     meta["normtype"] = normtype
 
-    return(convert(Array{Float32},m), meta, params)
+    return(float32(m), meta, params)
 end
 
 function feacalc(wavfile::String, application::Symbol; chan=:mono, method=:sox)
