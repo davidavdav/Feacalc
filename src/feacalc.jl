@@ -103,14 +103,15 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     meta["nfea"] = ncol(m)
     
     ## normalization
-    if normtype==:warp
-        m = warp(m, nwarp)
-        params["warp"] = nwarp          # the default
-    elseif normtype==:mvn
-        znorm!(m,1)
+    if nrow(m)>0
+        if normtype==:warp
+            m = warp(m, nwarp)
+            params["warp"] = nwarp          # the default
+        elseif normtype==:mvn
+            znorm!(m,1)
+        end
+        meta["normtype"] = normtype
     end
-    meta["normtype"] = normtype
-
     return(float32(m), meta, params)
 end
 
