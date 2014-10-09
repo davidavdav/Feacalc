@@ -16,9 +16,7 @@
 ## Feacalc.  Feature calculation as used for speaker and language recognition. 
 
 using MFCCs
-using SignalProcessing
 using WAV
-using Rasta
 
 nrow(x) = size(x,1)
 ncol(x) = size(x,2)
@@ -82,25 +80,28 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     end
     meta["augtype"] = augtype
 
-    if sadtype==:energy
-        ## integrate power
-        deltaf = size(pspec,2) / (sr/2)
-        minfreqi = iround(300deltaf)
-        maxfreqi = iround(4000deltaf)
-        power = 10log10(sum(pspec[:,minfreqi:maxfreqi], 2))
-    
-        maxpow = maximum(power)
-        speech = find(power .> maxpow - dynrange)
-        params["dynrange"] = dynrange
-    elseif sadtype==:none
-        speech = [1:nrow(m)]
+    if nrow(m)>0
+        if sadtype==:energy
+            ## integrate power
+            deltaf = size(pspec,2) / (sr/2)
+            minfreqi = iround(300deltaf)
+            maxfreqi = iround(4000deltaf)
+            power = 10log10(sum(pspec[:,minfreqi:maxfreqi], 2))
+            
+            maxpow = maximum(power)
+            speech = find(power .> maxpow - dynrange)
+            params["dynrange"] = dynrange
+        elseif sadtype==:none
+            speech = [1:nrow(m)]
+        end
+    else
+        speech=Int[]
     end
     meta["sadtype"] = sadtype
     ## perform SAD
     m = m[speech,:]
     meta["speech"] = uint32(speech)
-    meta["nframes"] = nrow(m)
-    meta["nfea"] = ncol(m)
+    meta["nframes"] , meta["nfea"] = size(m)
     
     ## normalization
     if nrow(m)>0
@@ -108,7 +109,11 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
             m = warp(m, nwarp)
             params["warp"] = nwarp          # the default
         elseif normtype==:mvn
-            znorm!(m,1)
+            if nrow(m)>1
+                znorm!(m,1)
+            else
+                fill!(m, 0)
+            end
         end
         meta["normtype"] = normtype
     end
