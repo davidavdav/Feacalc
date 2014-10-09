@@ -54,8 +54,8 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
         nsamples, nchan = length(x), 1
     end
     ## save some metadata
-    meta = {"nsamples" => nsamples, "sr" => sr, "source" => source, "nchan" => nchan,
-            "chan" => chan} 
+    meta = ["nsamples" => nsamples, "sr" => sr, "source" => source, "nchan" => nchan,
+            "chan" => chan]
     preemp = 0.97
     preemp ^= 16000. / sr
 
