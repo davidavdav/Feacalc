@@ -15,9 +15,6 @@
 
 ## Feacalc.  Feature calculation as used for speaker and language recognition. 
 
-using MFCCs
-using WAV
-
 nrow(x) = size(x,1)
 ncol(x) = size(x,2)
 

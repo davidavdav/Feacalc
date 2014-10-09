@@ -4,8 +4,6 @@
 ## i/o functions for speech feature data.  
 ## For compatibility reasons, we do not use JLD but encode everything in HDF5 types
 
-using HDF5
-
 ## encode non-HDF5 types in the key by adding type indicator---a poorman's solution
 HDF5.write(fd::HDF5File, s::ASCIIString, b::Bool) = write(fd, string(s,":Bool"), int8(b))
 HDF5.write(fd::HDF5File, s::ASCIIString, sym::Symbol) = write(fd, string(s,":Symbol"), string(sym))

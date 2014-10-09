@@ -14,6 +14,10 @@ module Feacalc
 
 ## Feacalc.  Feature calculation as used for speaker and language recognition. 
 
+using MFCC
+using WAV
+using HDF5
+
 export feacalc, sad, save, load
 
 include("feacalc.jl")
