@@ -33,7 +33,7 @@ function feacalc(wavfile::String; method=:sox, augtype=:ddelta, normtype=:warp, 
 end
 
 ## assume we have an array already
-function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono, sr::Real=8000.0, source=":array")
+function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, defaults=:spkid_toolkit, dynrange::Real=30., nwarp::Int=399, chan=:mono, sr::FloatingPoint=8000.0, source=":array")
     if ndims(x)>1
         nsamples, nchan = size(x)
         if chan == :mono
@@ -117,6 +117,7 @@ function feacalc(x::Array; augtype=:ddelta, normtype=:warp, sadtype=:energy, def
     return(float32(m), meta, params)
 end
 
+## When called with a specific application in mind, call with two arguments
 function feacalc(wavfile::String, application::Symbol; chan=:mono, method=:sox)
     if (application==:speaker)
         feacalc(wavfile; defaults=:spkid_toolkit, chan=chan, method=method)

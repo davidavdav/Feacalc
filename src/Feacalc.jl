@@ -20,7 +20,7 @@ using HDF5
 
 export feacalc, sad, save, load
 
-include("feacalc.jl")
+include("main.jl")
 include("io.jl")
 
 end
